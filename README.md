@@ -85,6 +85,32 @@ For detailed information on how Yellow converts model credential names to Kubern
 | `git-dags` | `GITSYNC_USERNAME`, `GITSYNC_PASSWORD` | Airflow DAG sync |
 | `datasurface-registry` | Docker registry auth | Pull DataSurface images |
 
+## CI/CD Validation Secrets
+
+This repository includes CI/CD workflow files that automatically validate pull requests (GitHub) and merge requests (GitLab) against the DataSurface model. These workflows pull the DataSurface validator Docker image from the GitLab Container Registry and require authentication secrets to be configured **before** validation will work.
+
+### GitHub Actions — `.github/workflows/pull-request.yml`
+
+Configure these as **repository secrets** (Settings → Secrets and variables → Actions):
+
+| Secret | Purpose |
+| ------ | ------- |
+| `GITLAB_USERNAME` | GitLab deploy token username (for pulling the DataSurface image) |
+| `GITLAB_ACCESS_TOKEN` | GitLab deploy token value |
+
+### GitLab CI/CD — `.gitlab-ci.yml`
+
+Configure these as **CI/CD variables** (Settings → CI/CD → Variables):
+
+| Variable | Purpose |
+| -------- | ------- |
+| `GITLAB_REPO_TOKEN` | Token for cloning repositories |
+| `GITLAB_USERNAME` | GitLab deploy token username (for pulling the DataSurface image) |
+| `GITLAB_ACCESS_TOKEN` | GitLab deploy token value |
+| `GITLAB_CLONE_HOST` | Your GitLab hostname (defaults to `gitlab.local`) |
+
+Your GitLab deploy token credentials are the same ones described in [ARTIFACTS.md](ARTIFACTS.md). Without these secrets, the Docker image pull will fail and PR/MR validation will not run.
+
 ## DataSurface Artifacts
 
 See [ARTIFACTS.md](ARTIFACTS.md) for accessing DataSurface Docker images and Python modules.
