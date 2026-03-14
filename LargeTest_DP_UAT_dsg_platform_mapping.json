@@ -1,0 +1,275 @@
+[
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_000",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_000",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_001",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_001",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_002",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_002",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_003",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_003",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_004",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_004",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_005",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_005",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_006",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_006",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_007",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_007",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_008",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_008",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "LiveDSG",
+    "workspace": "Consumer_009",
+    "assignments": [
+      {
+        "dataPlatform": "SCD1_UAT",
+        "documentation": "SCD1 Yellow DataPlatform UAT (live)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "ForensicDSG",
+    "workspace": "Consumer_009",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  },
+  {
+    "dsgName": "DSG",
+    "workspace": "Datasurface_ModelExternalization",
+    "assignments": [
+      {
+        "dataPlatform": "SCD2_UAT",
+        "documentation": "SCD2 Yellow DataPlatform UAT (forensic)",
+        "productionStatus": "NOT_PRODUCTION",
+        "deprecationsAllowed": "NEVER",
+        "status": "PROVISIONED"
+      }
+    ]
+  }
+]
