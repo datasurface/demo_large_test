@@ -11,19 +11,20 @@ It will generate 1 pipelines and it supports full milestoning (SCD2).
 
 from datasurface.dsl import ProductionStatus, \
     RuntimeEnvironment, Ecosystem, PSPDeclaration, \
-    DataMilestoningStrategy
+    DataMilestoningStrategy, ConsumerReplicaGroup
 from datasurface.keys import LocationKey
-from datasurface.containers import HostPortPair, PostgresDatabase
+from datasurface.containers import HostPortPair, PostgresDatabase, SQLServerDatabase
 from datasurface.security import Credential, CredentialType
 from datasurface.documentation import PlainTextDocumentation
 from datasurface.platforms.yellow import YellowDataPlatform, YellowPlatformServiceProvider
 from datasurface.platforms.yellow.assembly import GitCacheConfig, YellowExternalAirflow3AndMergeDatabase
 from datasurface.repos import VersionPatternReleaseSelector, GitHubRepository, ReleaseType, VersionPatterns
+from datasurface.triggers import CronTrigger
+from db_constants import MERGE_HOST, SQLSERVER_HOST_A, SQLSERVER_HOST_B
 
 # Docker Desktop configuration
 KUB_NAME_SPACE: str = "demo1"
 AIRFLOW_SERVICE_ACCOUNT: str = "airflow-worker"
-MERGE_HOST: str = "host.docker.internal"  # Access Docker containers from K8s
 MERGE_DBNAME: str = "merge_db"
 
 
@@ -57,7 +58,7 @@ def createDemoPSP() -> YellowPlatformServiceProvider:
         yp_assembly=yp_assembly,
         merge_datacontainer=k8s_merge_datacontainer,
         pv_storage_class="standard",
-        datasurfaceDockerImage="registry.gitlab.com/datasurface-inc/datasurface/datasurface:v1.1.0",
+        datasurfaceDockerImage="registry.gitlab.com/datasurface-inc/datasurface/datasurface:v1.2.2",
         dataPlatforms=[
             YellowDataPlatform(
                 "SCD2",
@@ -65,6 +66,30 @@ def createDemoPSP() -> YellowPlatformServiceProvider:
                 milestoneStrategy=DataMilestoningStrategy.SCD2,
                 stagingBatchesToKeep=5
                 )
+        ],
+        consumerReplicaGroups=[
+            ConsumerReplicaGroup(
+                "SQLServers",
+                dataContainers={
+                    SQLServerDatabase(
+                        "sqlserverCQRS_A",
+                        hostPort=HostPortPair(SQLSERVER_HOST_A, 1433),
+                        locations={LocationKey("MyCorp:USA/NY_1")},
+                        productionStatus=ProductionStatus.NOT_PRODUCTION,
+                        databaseName="large_cqrs_db"
+                    ),
+                    SQLServerDatabase(
+                        "sqlserverCQRS_B",
+                        hostPort=HostPortPair(SQLSERVER_HOST_B, 1433),
+                        locations={LocationKey("MyCorp:USA/NY_1")},
+                        productionStatus=ProductionStatus.NOT_PRODUCTION,
+                        databaseName="large_cqrs_db"
+                    )
+                },
+                workspaceNames=set(),
+                trigger=CronTrigger("CQRS", "*/5 * * * *"),  # Every 5 minutes
+                credential=Credential("sqlserver-cqrs", CredentialType.USER_PASSWORD)
+            )
         ]
     )
     return psp
