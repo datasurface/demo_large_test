@@ -1,6 +1,6 @@
 """
-// Copyright (c) 2026 William Newport
-// SPDX-License-Identifier: BUSL-1.1
+Copyright (c) 2026 DataSurface Inc. All Rights Reserved.
+Proprietary Software - See LICENSE.txt for terms.
 
 This model is intended for load testing. It defines an ecosystem with a single RTE with a CQRS group of 2 servers.
 It creates a single GZ with a N blocks. A block is a Team with 50 Datastores. Each datastore is a 2 dataset store using
