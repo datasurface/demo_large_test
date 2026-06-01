@@ -56,7 +56,7 @@ class TestEcosystem(unittest.TestCase):
         graph: EcosystemPipelineGraph = ecosys.getGraph()
         self.assertIsNotNone(graph)
         scd2_root: Optional[PlatformPipelineGraph] = graph.roots.get(scd2_dp.name)
-        self.assertIsNone(scd2_root)
+        self.assertIsNotNone(scd2_root)
 
 
 if __name__ == "__main__":

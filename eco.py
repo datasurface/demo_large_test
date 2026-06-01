@@ -2,236 +2,264 @@
 Copyright (c) 2026 DataSurface Inc. All Rights Reserved.
 Proprietary Software - See LICENSE.txt for terms.
 
-This model is intended for load testing. It defines an ecosystem with a single RTE with a CQRS group of 2 servers.
-It creates a single GZ with a N blocks. A block is a Team with 50 Datastores. Each datastore is a 2 dataset store using
-the simulated customer database datasets and uses CDC for ingestion.
-Each Team has a Workspace with all 50 x 2 datasets as DatasetSinks using SCD2 milestoning.
-
-The number of teams is a constant in the model.
-
-The PSP is using postgres (MERGE_HOST). The customer datasimulator runs on SQLSERVER_HOST_A and there are CQRS replicas on both SQLSERVER_HOST_A and B.
+Concurrent-ingestion scale model for Azure. It creates many logical CDC
+datastores over one Azure SQL source database so Airflow/AKS must schedule and
+run many independent ingestion streams.
 """
 
 from typing import Optional, cast
 
-from datasurface.containers import HostPortPair, SQLCDCIngestion, SQLServerDatabase, SQLDatabase
-from datasurface.dsl import (
-    ConsumerRetentionRequirements, DataLatency, DataMilestoningStrategy, DataPlatform, DataPlatformManagedDataContainer, DatasetGroup,
-    DatasetGroupDataPlatformAssignments, DSGDataPlatformAssignment, DatasetGroupDataPlatformMappingStatus, DeprecationsAllowed, WorkspacePlatformConfig,
-    DatasetSink, EnvRefDataContainer, EnvironmentMap, InfrastructureVendor, InfrastructureLocation, Ecosystem,
-    CloudVendor, IngestionConsistencyType, ProductionStatus, RuntimeDeclaration, Workspace,
-    ConsumerReplicaGroup
-)
-
-from datasurface.platforms.yellow import YellowDataPlatform, YellowPlatformServiceProvider
-from datasurface.dsl import GovernanceZoneDeclaration, GovernanceZone, TeamDeclaration, Team, Datastore, Dataset
-from datasurface.keys import LocationKey, DataPlatformKey
-from datasurface.schema import DDLTable, DDLColumn, NullableStatus, PrimaryKeyStatus
-from datasurface.policy import SimpleDC, SimpleDCTypes
-from datasurface.types import VarChar, Date
-from datasurface.security import Credential, CredentialType
+from datasurface.containers import AzureSQLDatabase, HostPortPair, SQLCDCIngestion, SQLDatabase
 from datasurface.documentation import PlainTextDocumentation
+from datasurface.dsl import (
+    CloudVendor,
+    ConsumerReplicaGroup,
+    ConsumerRetentionRequirements,
+    DataLatency,
+    DataMilestoningStrategy,
+    DataPlatform,
+    DataPlatformManagedDataContainer,
+    DatasetGroup,
+    DatasetGroupDataPlatformAssignments,
+    DatasetGroupDataPlatformMappingStatus,
+    DatasetSink,
+    DeprecationsAllowed,
+    DSGDataPlatformAssignment,
+    EnvRefDataContainer,
+    EnvironmentMap,
+    Ecosystem,
+    GovernanceZone,
+    GovernanceZoneDeclaration,
+    InfrastructureLocation,
+    InfrastructureVendor,
+    IngestionConsistencyType,
+    ProductionStatus,
+    RuntimeDeclaration,
+    Team,
+    TeamDeclaration,
+    Workspace,
+    WorkspacePlatformConfig,
+)
+from datasurface.dsl import Datastore, Dataset
+from datasurface.keys import DataPlatformKey, LocationKey
+from datasurface.policy import SimpleDC, SimpleDCTypes
 from datasurface.repos import GitHubRepository
+from datasurface.schema import DDLColumn, DDLTable, NullableStatus, PrimaryKeyStatus
+from datasurface.security import Credential, CredentialType
 from datasurface.triggers import CronTrigger
-# For AWS deployment, the setup-walkthrough-aws skill changes this to: from rte_aws import createDemoRTE
-from rte_demo import createDemoRTE
-from db_constants import SQLSERVER_HOST_A
+from datasurface.types import Date, VarChar
+from datasurface.yellow import YellowDataPlatform, YellowPlatformServiceProvider
 
-GIT_REPO_OWNER: str = "git_username"  # Change to your github username
-GIT_REPO_NAME: str = "gitrepo_name"  # Change to your github repository name containing this project
-
-NUM_TEAMS = 1
-NUM_STORES_PER_TEAM = 50
-
-
-def createGZ(eco: Ecosystem) -> GovernanceZone:
-    gz = eco.getZoneOrThrow("gz")
-    for i in range(1, NUM_TEAMS):
-        gz.add(
-            TeamDeclaration(
-                f"Team_{i}",
-                GitHubRepository(f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}", f"team_{i}_edit", credential=Credential("git", CredentialType.API_TOKEN))
-                )
-            )
-        t: Team = gz.getTeamOrThrow(f"Team_{i}")
-        t.add(
-            EnvironmentMap(
-                "demo",
-                dataContainers={
-                    frozenset(["customer_db_sqlserver"]): SQLServerDatabase(
-                        "CustomerDB",  # Model name for database
-                        hostPort=HostPortPair(SQLSERVER_HOST_A, 1433),
-                        locations={LocationKey("MyCorp:USA/NY_1")},  # Locations for database
-                        productionStatus=ProductionStatus.NOT_PRODUCTION,
-                        databaseName="customer_db"  # Database name
-                    )
-                },
-                dtReleaseSelectors=dict(),
-                dtDockerImages=dict()
-            )
-        )
-        # Create N Datastores using CDC ingestion from the same customer simulated database, each with 2 datasets (customers and addresses)
-        for j in range(1, NUM_STORES_PER_TEAM):
-            d: Datastore = Datastore(
-                    f"CustomerDB_SQLServer_{j}",
-                    documentation=PlainTextDocumentation("Test datastore"),
-                    capture_metadata=SQLCDCIngestion(
-                        EnvRefDataContainer("customer_db_sqlserver"),
-                        CronTrigger("Every 1 minute", "*/1 * * * *"),  # Cron trigger for ingestion
-                        IngestionConsistencyType.MULTI_DATASET,  # Ingestion consistency type
-                        Credential("customer-sqlserver-source-credential", CredentialType.USER_PASSWORD),  # Credential for platform to read from database
-                        ),
-                    datasets=[
-                        Dataset(
-                            "customers",
-                            schema=DDLTable(
-                                columns=[
-                                    DDLColumn("id", VarChar(20), nullable=NullableStatus.NOT_NULLABLE, primary_key=PrimaryKeyStatus.PK),
-                                    DDLColumn("firstName", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("lastName", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("dob", Date(), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("email", VarChar(100)),
-                                    DDLColumn("phone", VarChar(100)),
-                                    DDLColumn("primaryAddressId", VarChar(20)),
-                                    DDLColumn("billingAddressId", VarChar(20))
-                                ]
-                            ),
-                            classifications=[SimpleDC(SimpleDCTypes.CPI, "Customer")]
-                        ),
-                        Dataset(
-                            "addresses",
-                            schema=DDLTable(
-                                columns=[
-                                    DDLColumn("id", VarChar(20), nullable=NullableStatus.NOT_NULLABLE, primary_key=PrimaryKeyStatus.PK),
-                                    DDLColumn("customerId", VarChar(20), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("streetName", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("city", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("state", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
-                                    DDLColumn("zipCode", VarChar(30), nullable=NullableStatus.NOT_NULLABLE)
-                                ]
-                            ),
-                            classifications=[SimpleDC(SimpleDCTypes.CPI, "Address")]
-                        )
-                    ]
-                )
-            t.add(d)
-        # Now create a Workspace with DatasetSinks for all 50 x 2 datasets using SCD2 milestoning
-        dsgSinkList: list[DatasetSink] = list()
-        for j in range(1, NUM_STORES_PER_TEAM):
-            dsgSinkList.append(DatasetSink(f"CustomerDB_SQLServer_{j}", "customers"))
-            dsgSinkList.append(DatasetSink(f"CustomerDB_SQLServer_{j}", "addresses"))
-        w: Workspace = Workspace(
-            f"Team_{i}_Workspace",
-            DataPlatformManagedDataContainer("ConsumerCDC container"),
-            PlainTextDocumentation("Workspace to consume the datasets in CustomerDB_SQLServer datastore using SCD2"),
-            DatasetGroup(
-                "SCD2_DSG",
-                sinks=dsgSinkList,
-                platform_chooser=WorkspacePlatformConfig(
-                    hist=ConsumerRetentionRequirements(
-                        r=DataMilestoningStrategy.SCD2,
-                        latency=DataLatency.MINUTES,
-                        regulator=None
-                    )
-                )
-            )
-        )
-        t.add(w)
-    return gz
+from db_constants import (
+    AZURE_LOCATION_KEY,
+    AZURE_SOURCE_DBNAME,
+    AZURE_SOURCE_SQL_SERVER_HOST,
+    AZURE_SQL_SERVER_PORT,
+    AZURE_SQL_TRUST_SERVER_CERTIFICATE,
+    NUM_STORES_PER_TEAM,
+    NUM_TEAMS,
+)
+from rte_azure import CRG_NAME, createDemoRTE
 
 
-def addDSGPlatformMappingForWorkspace(eco: Ecosystem, workspace: Workspace, dsg: DatasetGroup, dp: DataPlatform[YellowPlatformServiceProvider]):
-    """Add a DSG platform mapping for a workspace/dsg pair, gets set to the current chooser for the dsg"""
-    # Find PSP which owns DP
+GIT_REPO_OWNER: str = "datasurface"
+GIT_REPO_NAME: str = "demo_large_test"
+SOURCE_CONTAINER_REF: str = "customer_db_azuresql"
+
+
+def _source_container() -> AzureSQLDatabase:
+    return AzureSQLDatabase(
+        "CustomerDB_AzureSQL",
+        hostPort=HostPortPair(AZURE_SOURCE_SQL_SERVER_HOST, AZURE_SQL_SERVER_PORT),
+        locations={LocationKey(AZURE_LOCATION_KEY)},
+        productionStatus=ProductionStatus.NOT_PRODUCTION,
+        databaseName=AZURE_SOURCE_DBNAME,
+        trustServerCertificate=AZURE_SQL_TRUST_SERVER_CERTIFICATE,
+    )
+
+
+def _customer_datasets() -> list[Dataset]:
+    return [
+        Dataset(
+            "customers",
+            schema=DDLTable(
+                columns=[
+                    DDLColumn("id", VarChar(20), nullable=NullableStatus.NOT_NULLABLE, primary_key=PrimaryKeyStatus.PK),
+                    DDLColumn("firstName", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("lastName", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("dob", Date(), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("email", VarChar(100)),
+                    DDLColumn("phone", VarChar(100)),
+                    DDLColumn("primaryAddressId", VarChar(20)),
+                    DDLColumn("billingAddressId", VarChar(20)),
+                ]
+            ),
+            classifications=[SimpleDC(SimpleDCTypes.CPI, "Customer")],
+        ),
+        Dataset(
+            "addresses",
+            schema=DDLTable(
+                columns=[
+                    DDLColumn("id", VarChar(20), nullable=NullableStatus.NOT_NULLABLE, primary_key=PrimaryKeyStatus.PK),
+                    DDLColumn("customerId", VarChar(20), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("streetName", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("city", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("state", VarChar(100), nullable=NullableStatus.NOT_NULLABLE),
+                    DDLColumn("zipCode", VarChar(30), nullable=NullableStatus.NOT_NULLABLE),
+                ]
+            ),
+            classifications=[SimpleDC(SimpleDCTypes.CPI, "Address")],
+        ),
+    ]
+
+
+def _store_name(team_idx: int, store_idx: int) -> str:
+    return f"CustomerDB_AzureSQL_T{team_idx}_{store_idx}"
+
+
+def _workspace_name(team_idx: int) -> str:
+    return f"Team_{team_idx}_Workspace"
+
+
+def addDSGPlatformMappingForWorkspace(
+    eco: Ecosystem,
+    workspace: Workspace,
+    dsg: DatasetGroup,
+    dp: DataPlatform[YellowPlatformServiceProvider],
+) -> None:
     for psp in eco.getAllDefinedPSPs():
         if dp in psp.dataPlatforms.values():
             break
     else:
         raise Exception(f"Data platform {dp.name} not found in any PSP")
 
-    if psp.dsgPlatformMappings.get(f"{workspace.name}#{dsg.name}") is None:
-        psp.dsgPlatformMappings[f"{workspace.name}#{dsg.name}"] = DatasetGroupDataPlatformAssignments(
+    assignment = DSGDataPlatformAssignment(
+        workspace=workspace.name,
+        dsgName=dsg.name,
+        dp=DataPlatformKey(dp.name),
+        doc=PlainTextDocumentation("Azure scale test workspace assignment"),
+        productionStatus=dp.getProductionStatus(),
+        deprecationsAllowed=DeprecationsAllowed.NEVER,
+        status=DatasetGroupDataPlatformMappingStatus.PROVISIONED,
+    )
+
+    key = f"{workspace.name}#{dsg.name}"
+    if psp.dsgPlatformMappings.get(key) is None:
+        psp.dsgPlatformMappings[key] = DatasetGroupDataPlatformAssignments(
             workspace=workspace.name,
             dsgName=dsg.name,
-            assignments=[
-                DSGDataPlatformAssignment(
-                    workspace=workspace.name,
-                    dsgName=dsg.name,
-                    dp=DataPlatformKey(dp.name),
-                    doc=PlainTextDocumentation("Test docs"),
-                    productionStatus=dp.getProductionStatus(),
-                    deprecationsAllowed=DeprecationsAllowed.NEVER,
-                    status=DatasetGroupDataPlatformMappingStatus.PROVISIONED)]
+            assignments=[assignment],
         )
     else:
-        psp.dsgPlatformMappings[f"{workspace.name}#{dsg.name}"].assignments.append(
-            DSGDataPlatformAssignment(
-                workspace=workspace.name,
-                dsgName=dsg.name,
-                dp=DataPlatformKey(dp.name),
-                doc=PlainTextDocumentation("Test docs"),
-                productionStatus=dp.getProductionStatus(),
-                deprecationsAllowed=DeprecationsAllowed.NEVER, status=DatasetGroupDataPlatformMappingStatus.PROVISIONED))
+        psp.dsgPlatformMappings[key].assignments.append(assignment)
 
 
-def assignWorkspaceToCRG(eco: Ecosystem):
-    # Navigate to the RTE/PSP and then the CRG
-    psp: YellowPlatformServiceProvider = cast(YellowPlatformServiceProvider, eco.getPSPOrThrow("Demo_PSP"))
-    dp: YellowDataPlatform = cast(YellowDataPlatform, eco.getDataPlatformOrThrow("SCD2"))
+def createGZ(eco: Ecosystem) -> GovernanceZone:
+    gz = eco.getZoneOrThrow("gz")
+    for team_idx in range(1, NUM_TEAMS + 1):
+        gz.add(
+            TeamDeclaration(
+                f"Team_{team_idx}",
+                GitHubRepository(
+                    f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}",
+                    f"team_{team_idx}_edit",
+                    credential=Credential("git", CredentialType.API_TOKEN),
+                ),
+            )
+        )
 
-    crg: Optional[ConsumerReplicaGroup[SQLDatabase]] = psp.consumerReplicaGroups.get("SQLServers")
-    assert crg is not None, "CRG SQLServers not found in PSP Demo_PSP"
-    # Add Workspaces to CRG which assignes them to SQL HOST A and B (2 replicas for each Workspace)
-    crg.workspaceNames = set()
-    for i in range(1, NUM_TEAMS):
-        w: Workspace = eco.cache_getWorkspaceOrThrow(f"Team_{i}_Workspace").workspace
-        crg.workspaceNames.add(w.name)
-        addDSGPlatformMappingForWorkspace(eco, w, w.dsgs["SCD2_DSG"], dp)
+        team: Team = gz.getTeamOrThrow(f"Team_{team_idx}")
+        team.add(
+            EnvironmentMap(
+                "demo",
+                dataContainers={frozenset([SOURCE_CONTAINER_REF]): _source_container()},
+                dtReleaseSelectors=dict(),
+                dtDockerImages=dict(),
+            )
+        )
+
+        dsg_sinks: list[DatasetSink] = []
+        for store_idx in range(1, NUM_STORES_PER_TEAM + 1):
+            store_name = _store_name(team_idx, store_idx)
+            team.add(
+                Datastore(
+                    store_name,
+                    documentation=PlainTextDocumentation("Azure SQL CDC scale-test datastore"),
+                    capture_metadata=SQLCDCIngestion(
+                        EnvRefDataContainer(SOURCE_CONTAINER_REF),
+                        CronTrigger("Every 1 minute", "*/1 * * * *"),
+                        IngestionConsistencyType.MULTI_DATASET,
+                        Credential("customer-sqlserver-source-credential", CredentialType.USER_PASSWORD),
+                    ),
+                    datasets=_customer_datasets(),
+                )
+            )
+            dsg_sinks.append(DatasetSink(store_name, "customers"))
+            dsg_sinks.append(DatasetSink(store_name, "addresses"))
+
+        workspace = Workspace(
+            _workspace_name(team_idx),
+            DataPlatformManagedDataContainer("Azure scale consumer container"),
+            PlainTextDocumentation("Workspace consuming all generated Azure SQL CDC datastores"),
+            DatasetGroup(
+                "SCD2_DSG",
+                sinks=dsg_sinks,
+                platform_chooser=WorkspacePlatformConfig(
+                    hist=ConsumerRetentionRequirements(
+                        r=DataMilestoningStrategy.SCD2,
+                        latency=DataLatency.MINUTES,
+                        regulator=None,
+                    )
+                ),
+            ),
+        )
+        team.add(workspace)
+        assignWorkspaceToCRG(eco, workspace)
+    return gz
+
+
+def assignWorkspaceToCRG(eco: Ecosystem, workspace: Workspace) -> None:
+    psp = cast(YellowPlatformServiceProvider, eco.getPSPOrThrow("Demo_PSP"))
+    dp = cast(YellowDataPlatform, eco.getDataPlatformOrThrow("SCD2"))
+
+    crg: Optional[ConsumerReplicaGroup[SQLDatabase]] = psp.consumerReplicaGroups.get(CRG_NAME)
+    assert crg is not None, f"CRG {CRG_NAME} not found in PSP Demo_PSP"
+    crg.workspaceNames.add(workspace.name)
+    addDSGPlatformMappingForWorkspace(eco, workspace, workspace.dsgs["SCD2_DSG"], dp)
 
 
 def createEcosystem() -> Ecosystem:
-    """This is a very simple test model with a single datastore and dataset.
-    It is used to test the YellowDataPlatform. We are using a monorepo approach
-    so all the model fragments use the same owning repository.
+    git = Credential("git", CredentialType.API_TOKEN)
+    repo_name = f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}"
+    e_repo = GitHubRepository(repo_name, "main_edit", credential=git)
 
-    Updated ecosystem documentation for testing workflow.
-    """
-
-    git: Credential = Credential("git", CredentialType.API_TOKEN)
-    eRepo: GitHubRepository = GitHubRepository(f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}", "main_edit", credential=git)
-
-    ecosys: Ecosystem = Ecosystem(
+    ecosys = Ecosystem(
         name="Demo",
-        repo=eRepo,
+        repo=e_repo,
         runtimeDecls=[
-            RuntimeDeclaration("demo", GitHubRepository(f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}", "demo_rte_edit", credential=git))
+            RuntimeDeclaration("demo", GitHubRepository(repo_name, "demo_rte_edit", credential=git))
         ],
         governance_zone_declarations=[
-            GovernanceZoneDeclaration("gz", GitHubRepository(f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}", "gz_edit", credential=git))
+            GovernanceZoneDeclaration("gz", GitHubRepository(repo_name, "gz_edit", credential=git))
         ],
         infrastructure_vendors=[
-            # Onsite data centers
             InfrastructureVendor(
-                name="MyCorp",
-                cloud_vendor=CloudVendor.PRIVATE,
-                documentation=PlainTextDocumentation("Private company data centers - updated"),
+                name="Azure",
+                cloud_vendor=CloudVendor.AZURE,
+                documentation=PlainTextDocumentation("Microsoft Azure"),
                 locations=[
                     InfrastructureLocation(
                         name="USA",
                         locations=[
-                            InfrastructureLocation(name="NY_1")
-                        ]
+                            InfrastructureLocation(name="EastUS"),
+                        ],
                     )
-                ]
+                ],
             )
         ],
-        liveRepo=GitHubRepository(f"{GIT_REPO_OWNER}/{GIT_REPO_NAME}", "main", credential=git)
+        liveRepo=GitHubRepository(repo_name, "main", credential=git),
     )
-    # Define the demo RTE
-    createDemoRTE(ecosys)
-    # Create the GZ and teams with their datastores and workspaces
-    createGZ(ecosys)
-    # Now assign all the workspaces to the CRG
-    assignWorkspaceToCRG(ecosys)
 
+    createDemoRTE(ecosys)
+    createGZ(ecosys)
     return ecosys
