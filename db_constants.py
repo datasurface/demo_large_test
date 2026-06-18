@@ -4,17 +4,18 @@ Proprietary Software - See LICENSE.txt for terms.
 """
 
 # Model size. Keep this at one stream for the Azure Snowflake functional
-# verification, then scale deliberately through 10, 50, 100, and 200 streams.
+# verification, then scale deliberately through 10, 50, 100, 150, 200, and
+# 250 streams.
 NUM_TEAMS: int = 1
 NUM_STORES_PER_TEAM: int = 1
 
 # Azure resource values. Replace these literals with the actual provisioned
 # Azure values before generating bootstrap artifacts.
 AZURE_LOCATION_KEY: str = "Azure:USA/WestUS2"
-AZURE_SOURCE_SQL_SERVER_HOST: str = "source-replace-me.database.windows.net"
+AZURE_SOURCE_SQL_SERVER_HOST: str = "ds-azsf-source-06180941367a.database.windows.net"
 AZURE_MERGE_SQL_SERVER_HOST: str = "merge-replace-me.database.windows.net"
 AZURE_CQRS_SQL_SERVER_HOST: str = "cqrs-replace-me.database.windows.net"
-AZURE_AIRFLOW_POSTGRES_HOST: str = "airflow-replace-me.postgres.database.azure.com"
+AZURE_AIRFLOW_POSTGRES_HOST: str = "ds-azsf-airflow-06180941367a.postgres.database.azure.com"
 AZURE_SQL_SERVER_PORT: int = 1433
 AZURE_AIRFLOW_POSTGRES_PORT: int = 5432
 AZURE_SOURCE_DBNAME: str = "customer_db"
@@ -41,7 +42,7 @@ AZURE_SF_SNOWFLAKE_WAREHOUSE: str = "DATASURFACE"
 AZURE_SF_SNOWFLAKE_ROLE: str = "DATASURFACE_RUNTIME_ROLE"
 AZURE_SF_BULK_STORAGE_ACCOUNT: str = "dsdollybulk05310343"
 AZURE_SF_BULK_CONTAINER: str = "datasurface-bulk"
-AZURE_SF_BULK_PREFIX: str = "yellow/azure-sf-scale"
+AZURE_SF_BULK_PREFIX: str = "yellow/azure-sf-scale/06180941367a"
 AZURE_SF_BULK_STAGE_NAME: str = "datasurface_bulk_ds"
 
 # Ingestion pod sizing for the Airflow/AKS concurrency test.
