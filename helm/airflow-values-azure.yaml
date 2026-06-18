@@ -11,13 +11,13 @@ labels:
 
 executor: CeleryExecutor
 
-# Custom Airflow image with pymssql + Azure Key Vault SDK
-# Required because merge DB is Azure SQL (SQL Server) and DAGs read from Azure Key Vault
+# Custom Airflow image with SQL Server drivers, Snowflake drivers, and Azure Key Vault SDK
+# Required because sources are Azure SQL and azure_sf uses Snowflake as merge/CQRS
 # Pre-built and hosted on GitLab - pulled with the same datasurface-registry secret
 images:
   airflow:
     repository: registry.gitlab.com/datasurface-inc/datasurface/airflow
-    tag: "3.1.7-azure"
+    tag: "3.2.2-azure-sf"
 
 # External Azure Database for PostgreSQL Flexible Server
 postgresql:

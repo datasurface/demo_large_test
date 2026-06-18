@@ -59,7 +59,20 @@ from db_constants import (
     NUM_STORES_PER_TEAM,
     NUM_TEAMS,
 )
-from rte_azure import CRG_NAME, createDemoRTE
+from rte_azure import (
+    CRG_NAME as AZURE_CRG_NAME,
+    DATA_PLATFORM_NAME as AZURE_DATA_PLATFORM_NAME,
+    PSP_NAME as AZURE_PSP_NAME,
+    RTE_NAME as AZURE_RTE_NAME,
+    createDemoRTE,
+)
+from rte_azure_sf import (
+    CRG_NAME as AZURE_SF_CRG_NAME,
+    DATA_PLATFORM_NAME as AZURE_SF_DATA_PLATFORM_NAME,
+    PSP_NAME as AZURE_SF_PSP_NAME,
+    RTE_NAME as AZURE_SF_RTE_NAME,
+    createAzureSfRTE,
+)
 
 
 GIT_REPO_OWNER: str = "datasurface"
@@ -171,7 +184,15 @@ def createGZ(eco: Ecosystem) -> GovernanceZone:
         team: Team = gz.getTeamOrThrow(f"Team_{team_idx}")
         team.add(
             EnvironmentMap(
-                "demo",
+                AZURE_RTE_NAME,
+                dataContainers={frozenset([SOURCE_CONTAINER_REF]): _source_container()},
+                dtReleaseSelectors=dict(),
+                dtDockerImages=dict(),
+            )
+        )
+        team.add(
+            EnvironmentMap(
+                AZURE_SF_RTE_NAME,
                 dataContainers={frozenset([SOURCE_CONTAINER_REF]): _source_container()},
                 dtReleaseSelectors=dict(),
                 dtDockerImages=dict(),
@@ -219,11 +240,22 @@ def createGZ(eco: Ecosystem) -> GovernanceZone:
 
 
 def assignWorkspaceToCRG(eco: Ecosystem, workspace: Workspace) -> None:
-    psp = cast(YellowPlatformServiceProvider, eco.getPSPOrThrow("Demo_PSP"))
-    dp = cast(YellowDataPlatform, eco.getDataPlatformOrThrow("SCD2"))
+    _assignWorkspaceToPlatform(eco, workspace, AZURE_PSP_NAME, AZURE_DATA_PLATFORM_NAME, AZURE_CRG_NAME)
+    _assignWorkspaceToPlatform(eco, workspace, AZURE_SF_PSP_NAME, AZURE_SF_DATA_PLATFORM_NAME, AZURE_SF_CRG_NAME)
 
-    crg: Optional[ConsumerReplicaGroup[SQLDatabase]] = psp.consumerReplicaGroups.get(CRG_NAME)
-    assert crg is not None, f"CRG {CRG_NAME} not found in PSP Demo_PSP"
+
+def _assignWorkspaceToPlatform(
+    eco: Ecosystem,
+    workspace: Workspace,
+    psp_name: str,
+    data_platform_name: str,
+    crg_name: str,
+) -> None:
+    psp = cast(YellowPlatformServiceProvider, eco.getPSPOrThrow(psp_name))
+    dp = cast(YellowDataPlatform, eco.getDataPlatformOrThrow(data_platform_name))
+
+    crg: Optional[ConsumerReplicaGroup[SQLDatabase]] = psp.consumerReplicaGroups.get(crg_name)
+    assert crg is not None, f"CRG {crg_name} not found in PSP {psp_name}"
     crg.workspaceNames.add(workspace.name)
     addDSGPlatformMappingForWorkspace(eco, workspace, workspace.dsgs["SCD2_DSG"], dp)
 
@@ -237,7 +269,8 @@ def createEcosystem() -> Ecosystem:
         name="Demo",
         repo=e_repo,
         runtimeDecls=[
-            RuntimeDeclaration("demo", GitHubRepository(repo_name, "demo_rte_edit", credential=git))
+            RuntimeDeclaration(AZURE_RTE_NAME, GitHubRepository(repo_name, "demo_rte_edit", credential=git)),
+            RuntimeDeclaration(AZURE_SF_RTE_NAME, GitHubRepository(repo_name, "azure_sf_rte_edit", credential=git)),
         ],
         governance_zone_declarations=[
             GovernanceZoneDeclaration("gz", GitHubRepository(repo_name, "gz_edit", credential=git))
@@ -252,6 +285,7 @@ def createEcosystem() -> Ecosystem:
                         name="USA",
                         locations=[
                             InfrastructureLocation(name="EastUS"),
+                            InfrastructureLocation(name="WestUS2"),
                         ],
                     )
                 ],
@@ -261,5 +295,6 @@ def createEcosystem() -> Ecosystem:
     )
 
     createDemoRTE(ecosys)
+    createAzureSfRTE(ecosys)
     createGZ(ecosys)
     return ecosys

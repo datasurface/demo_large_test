@@ -2,12 +2,11 @@
 Copyright (c) 2026 DataSurface Inc. All Rights Reserved.
 Proprietary Software - See LICENSE.txt for terms.
 
-Azure AKS runtime environment configuration for the concurrent-ingestion scale
-model. Replace the literal host/database/storage values after Azure resources
-are provisioned, then commit the updated model.
+Azure AKS runtime environment configuration using Azure Blob bulk staging and
+an Azure-hosted Snowflake account for the Yellow merge and CQRS databases.
 """
 
-from datasurface.containers import AzureObjectContainer, AzureSQLHyperscaleDatabase, HostPortPair
+from datasurface.containers import AzureObjectContainer, HostPortPair, SnowFlakeDatabase
 from datasurface.documentation import PlainTextDocumentation
 from datasurface.dsl import (
     ConsumerReplicaGroup,
@@ -33,19 +32,22 @@ from datasurface.yellow import (
 )
 
 from db_constants import (
-    AZURE_BULK_CONTAINER,
-    AZURE_BULK_DATA_SOURCE_NAME,
-    AZURE_BULK_PREFIX,
-    AZURE_BULK_STORAGE_ACCOUNT,
     AZURE_AIRFLOW_POSTGRES_HOST,
     AZURE_AIRFLOW_POSTGRES_PORT,
-    AZURE_CQRS_DBNAME,
-    AZURE_CQRS_SQL_SERVER_HOST,
     AZURE_LOCATION_KEY,
-    AZURE_MERGE_DBNAME,
-    AZURE_MERGE_SQL_SERVER_HOST,
-    AZURE_SQL_SERVER_PORT,
-    AZURE_SQL_TRUST_SERVER_CERTIFICATE,
+    AZURE_SF_BULK_CONTAINER,
+    AZURE_SF_BULK_PREFIX,
+    AZURE_SF_BULK_STAGE_NAME,
+    AZURE_SF_BULK_STORAGE_ACCOUNT,
+    AZURE_SF_DATA_PLATFORM_NAME,
+    AZURE_SF_PSP_NAME,
+    AZURE_SF_RTE_NAME,
+    AZURE_SF_SNOWFLAKE_ACCOUNT,
+    AZURE_SF_SNOWFLAKE_DATABASE,
+    AZURE_SF_SNOWFLAKE_HOST,
+    AZURE_SF_SNOWFLAKE_ROLE,
+    AZURE_SF_SNOWFLAKE_SCHEMA,
+    AZURE_SF_SNOWFLAKE_WAREHOUSE,
     INGESTION_LIMIT_CPU,
     INGESTION_LIMIT_MEMORY,
     INGESTION_REQUEST_CPU,
@@ -55,31 +57,47 @@ from db_constants import (
 )
 
 
-KUB_NAME_SPACE: str = "ds-scale"
+KUB_NAME_SPACE: str = "ds-scale-azure-sf"
 AIRFLOW_HOST: str = AZURE_AIRFLOW_POSTGRES_HOST
 AIRFLOW_PORT: int = AZURE_AIRFLOW_POSTGRES_PORT
 AIRFLOW_SERVICE_ACCOUNT: str = "airflow-worker"
 DATASURFACE_VERSION: str = "1.4.65"
-RTE_NAME: str = "demo"
-PSP_NAME: str = "Demo_PSP"
-DATA_PLATFORM_NAME: str = "SCD2"
-CRG_NAME: str = "AzureHyperscaleCQRS"
-CQRS_CONTAINER_NAME: str = "AzureHyperscale_CQRS_DB"
+RTE_NAME: str = AZURE_SF_RTE_NAME
+PSP_NAME: str = AZURE_SF_PSP_NAME
+DATA_PLATFORM_NAME: str = AZURE_SF_DATA_PLATFORM_NAME
+CRG_NAME: str = "AzureSnowflakeCQRS"
+MERGE_CONTAINER_NAME: str = "AzureSnowflakeMergeDB"
+CQRS_CONTAINER_NAME: str = "AzureSnowflake_CQRS_DB"
+SNOWFLAKE_HOST_NAME: str = AZURE_SF_SNOWFLAKE_HOST
 
 
 def _location() -> LocationKey:
     return LocationKey(AZURE_LOCATION_KEY)
 
 
-def _azure_bulk_binding() -> BulkObjectStorageBinding:
+def _azure_sf_bulk_binding() -> BulkObjectStorageBinding:
     return BulkObjectStorageBinding(
         AzureObjectContainer(
-            AZURE_BULK_DATA_SOURCE_NAME,
+            AZURE_SF_BULK_STAGE_NAME,
             {_location()},
-            storageAccountName=AZURE_BULK_STORAGE_ACCOUNT,
-            containerName=AZURE_BULK_CONTAINER,
-            prefix=AZURE_BULK_PREFIX,
-        )
+            storageAccountName=AZURE_SF_BULK_STORAGE_ACCOUNT,
+            containerName=AZURE_SF_BULK_CONTAINER,
+            prefix=AZURE_SF_BULK_PREFIX,
+        ),
+        writerCredential=Credential("azure-bulk-writer", CredentialType.USER_PASSWORD),
+    )
+
+
+def _snowflake_container(name: str) -> SnowFlakeDatabase:
+    return SnowFlakeDatabase(
+        name,
+        locations={_location()},
+        productionStatus=ProductionStatus.NOT_PRODUCTION,
+        databaseName=AZURE_SF_SNOWFLAKE_DATABASE,
+        account=AZURE_SF_SNOWFLAKE_ACCOUNT,
+        warehouse=AZURE_SF_SNOWFLAKE_WAREHOUSE,
+        schema=AZURE_SF_SNOWFLAKE_SCHEMA,
+        role=AZURE_SF_SNOWFLAKE_ROLE,
     )
 
 
@@ -110,24 +128,9 @@ def _ingestion_hints() -> list[K8sIngestionHint]:
     return hints
 
 
-def createDemoPSP() -> YellowPlatformServiceProvider:
-    merge_datacontainer = AzureSQLHyperscaleDatabase(
-        "AzureHyperscaleMergeDB",
-        hostPort=HostPortPair(AZURE_MERGE_SQL_SERVER_HOST, AZURE_SQL_SERVER_PORT),
-        locations={_location()},
-        productionStatus=ProductionStatus.NOT_PRODUCTION,
-        databaseName=AZURE_MERGE_DBNAME,
-        trustServerCertificate=AZURE_SQL_TRUST_SERVER_CERTIFICATE,
-    )
-
-    cqrs_datacontainer = AzureSQLHyperscaleDatabase(
-        CQRS_CONTAINER_NAME,
-        hostPort=HostPortPair(AZURE_CQRS_SQL_SERVER_HOST, AZURE_SQL_SERVER_PORT),
-        locations={_location()},
-        productionStatus=ProductionStatus.NOT_PRODUCTION,
-        databaseName=AZURE_CQRS_DBNAME,
-        trustServerCertificate=AZURE_SQL_TRUST_SERVER_CERTIFICATE,
-    )
+def createAzureSfPSP() -> YellowPlatformServiceProvider:
+    merge_datacontainer = _snowflake_container(MERGE_CONTAINER_NAME)
+    cqrs_datacontainer = _snowflake_container(CQRS_CONTAINER_NAME)
 
     git_config = GitCacheConfig(
         enabled=True,
@@ -136,24 +139,29 @@ def createDemoPSP() -> YellowPlatformServiceProvider:
     )
 
     yp_assembly = YellowAzureExternalAirflow3AndMergeDatabase(
-        name="Demo",
+        name="AzureSnowflake",
         namespace=KUB_NAME_SPACE,
         git_cache_config=git_config,
         afHostPortPair=HostPortPair(AIRFLOW_HOST, AIRFLOW_PORT),
         airflowServiceAccount=AIRFLOW_SERVICE_ACCOUNT,
     )
 
+    sf_doc = (
+        "Azure Snowflake scale PSP. Snowflake host: "
+        f"{SNOWFLAKE_HOST_NAME}; connector account: {AZURE_SF_SNOWFLAKE_ACCOUNT}."
+    )
+
     return YellowPlatformServiceProvider(
         PSP_NAME,
         {_location()},
-        PlainTextDocumentation("Azure concurrent-ingestion scale PSP"),
+        PlainTextDocumentation(sf_doc),
         gitCredential=Credential("git", CredentialType.API_TOKEN),
-        mergeRW_Credential=Credential("sqlserver-demo-merge", CredentialType.USER_PASSWORD),
+        mergeRW_Credential=Credential("snowflake-runtime", CredentialType.PRIVATE_KEY_AUTH),
         yp_assembly=yp_assembly,
         merge_datacontainer=merge_datacontainer,
         pv_storage_class="azurefile-csi-nfs",
         datasurfaceDockerImage=f"registry.gitlab.com/datasurface-inc/datasurface/datasurface:v{DATASURFACE_VERSION}",
-        bulkObjectStorage=_azure_bulk_binding(),
+        bulkObjectStorage=_azure_sf_bulk_binding(),
         hints=_ingestion_hints(),
         consumerReplicaGroups=[
             ConsumerReplicaGroup(
@@ -161,14 +169,14 @@ def createDemoPSP() -> YellowPlatformServiceProvider:
                 dataContainers={cqrs_datacontainer},
                 workspaceNames=set(),
                 trigger=CronTrigger("Every 2 minutes", "*/2 * * * *"),
-                credential=Credential("sqlserver-cqrs", CredentialType.USER_PASSWORD),
-                bulkObjectStorages={CQRS_CONTAINER_NAME: _azure_bulk_binding()},
+                credential=Credential("snowflake-cqrs", CredentialType.PRIVATE_KEY_AUTH),
+                bulkObjectStorages={CQRS_CONTAINER_NAME: _azure_sf_bulk_binding()},
             )
         ],
         dataPlatforms=[
             YellowDataPlatform(
                 DATA_PLATFORM_NAME,
-                doc=PlainTextDocumentation("SCD2 Yellow DataPlatform"),
+                doc=PlainTextDocumentation("SCD2 Yellow DataPlatform on Azure-hosted Snowflake"),
                 milestoneStrategy=DataMilestoningStrategy.SCD2,
                 stagingBatchesToKeep=5,
             )
@@ -176,10 +184,10 @@ def createDemoPSP() -> YellowPlatformServiceProvider:
     )
 
 
-def createDemoRTE(ecosys: Ecosystem) -> RuntimeEnvironment:
+def createAzureSfRTE(ecosys: Ecosystem) -> RuntimeEnvironment:
     assert isinstance(ecosys.owningRepo, GitHubRepository)
 
-    psp = createDemoPSP()
+    psp = createAzureSfPSP()
     rte = ecosys.getRuntimeEnvironmentOrThrow(RTE_NAME)
     rte.configure(
         VersionPatternReleaseSelector(VersionPatterns.VN_N_N + "-demo", ReleaseType.STABLE_ONLY),
