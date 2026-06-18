@@ -7,7 +7,7 @@ Proprietary Software - See LICENSE.txt for terms.
 # verification, then scale deliberately through 10, 50, 100, 150, 200, and
 # 250 streams.
 NUM_TEAMS: int = 1
-NUM_STORES_PER_TEAM: int = 10
+NUM_STORES_PER_TEAM: int = 50
 
 # Azure resource values. Replace these literals with the actual provisioned
 # Azure values before generating bootstrap artifacts.
