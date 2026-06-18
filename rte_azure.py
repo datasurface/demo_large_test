@@ -103,7 +103,7 @@ def _ingestion_hints() -> list[K8sIngestionHint]:
                         "bulkStagingMinRows": 1,
                         "bulkUploadMaxSinglePutMiB": 4,
                         "bulkUploadChunkMiB": 4,
-                        "bulkUploadMaxConcurrency": 4,
+                        "bulkUploadMaxConcurrency": 2,
                     },
                 )
             )

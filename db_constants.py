@@ -46,10 +46,11 @@ AZURE_SF_BULK_CONTAINER: str = "datasurface-bulk"
 AZURE_SF_BULK_PREFIX: str = "yellow/azure-sf-scale/06180941367a"
 AZURE_SF_BULK_STAGE_NAME: str = "datasurface_bulk_ds"
 
-# Ingestion pod sizing for the Airflow/AKS concurrency test.
-INGESTION_REQUEST_MEMORY: str = "512M"
-INGESTION_LIMIT_MEMORY: str = "2G"
-INGESTION_REQUEST_CPU: float = 0.25
+# Ingestion pod sizing for dense Airflow/AKS concurrency tests. These match the
+# proven Azure SCD4 scale baseline: low placement requests with a 1 CPU burst cap.
+INGESTION_REQUEST_MEMORY: str = "256M"
+INGESTION_LIMIT_MEMORY: str = "512M"
+INGESTION_REQUEST_CPU: float = 0.05
 INGESTION_LIMIT_CPU: float = 1.0
 
 # Legacy local/AWS names retained for rte_demo.py/rte_aws.py.
