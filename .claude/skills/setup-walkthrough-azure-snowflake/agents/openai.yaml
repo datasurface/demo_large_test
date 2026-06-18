@@ -1,0 +1,4 @@
+interface:
+  display_name: "Azure Snowflake Setup"
+  short_description: "Deploy Azure AKS with Snowflake merge"
+  default_prompt: "Use $setup-walkthrough-azure-snowflake to run a one-stream Azure Snowflake DataSurface functional test."
