@@ -43,10 +43,11 @@ from db_constants import (
     AZURE_SF_PSP_NAME,
     AZURE_SF_RTE_NAME,
     AZURE_SF_SNOWFLAKE_ACCOUNT,
+    AZURE_SF_SNOWFLAKE_CQRS_SCHEMA,
     AZURE_SF_SNOWFLAKE_DATABASE,
     AZURE_SF_SNOWFLAKE_HOST,
+    AZURE_SF_SNOWFLAKE_MERGE_SCHEMA,
     AZURE_SF_SNOWFLAKE_ROLE,
-    AZURE_SF_SNOWFLAKE_SCHEMA,
     AZURE_SF_SNOWFLAKE_WAREHOUSE,
     INGESTION_LIMIT_CPU,
     INGESTION_LIMIT_MEMORY,
@@ -88,7 +89,7 @@ def _azure_sf_bulk_binding() -> BulkObjectStorageBinding:
     )
 
 
-def _snowflake_container(name: str) -> SnowFlakeDatabase:
+def _snowflake_container(name: str, schema: str) -> SnowFlakeDatabase:
     return SnowFlakeDatabase(
         name,
         locations={_location()},
@@ -96,7 +97,7 @@ def _snowflake_container(name: str) -> SnowFlakeDatabase:
         databaseName=AZURE_SF_SNOWFLAKE_DATABASE,
         account=AZURE_SF_SNOWFLAKE_ACCOUNT,
         warehouse=AZURE_SF_SNOWFLAKE_WAREHOUSE,
-        schema=AZURE_SF_SNOWFLAKE_SCHEMA,
+        schema=schema,
         role=AZURE_SF_SNOWFLAKE_ROLE,
     )
 
@@ -129,8 +130,8 @@ def _ingestion_hints() -> list[K8sIngestionHint]:
 
 
 def createAzureSfPSP() -> YellowPlatformServiceProvider:
-    merge_datacontainer = _snowflake_container(MERGE_CONTAINER_NAME)
-    cqrs_datacontainer = _snowflake_container(CQRS_CONTAINER_NAME)
+    merge_datacontainer = _snowflake_container(MERGE_CONTAINER_NAME, AZURE_SF_SNOWFLAKE_MERGE_SCHEMA)
+    cqrs_datacontainer = _snowflake_container(CQRS_CONTAINER_NAME, AZURE_SF_SNOWFLAKE_CQRS_SCHEMA)
 
     git_config = GitCacheConfig(
         enabled=True,
