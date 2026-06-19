@@ -10,6 +10,7 @@ from datasurface.containers import AzureObjectContainer, HostPortPair, SnowFlake
 from datasurface.documentation import PlainTextDocumentation
 from datasurface.dsl import (
     ConsumerReplicaGroup,
+    CQRSRuntimeHint,
     DataMilestoningStrategy,
     Ecosystem,
     PSPDeclaration,
@@ -62,7 +63,7 @@ KUB_NAME_SPACE: str = "ds-scale-azure-sf"
 AIRFLOW_HOST: str = AZURE_AIRFLOW_POSTGRES_HOST
 AIRFLOW_PORT: int = AZURE_AIRFLOW_POSTGRES_PORT
 AIRFLOW_SERVICE_ACCOUNT: str = "airflow-worker"
-DATASURFACE_VERSION: str = "1.4.65-azsf-fix5"
+DATASURFACE_VERSION: str = "1.4.65-azsf-fix6"
 RTE_NAME: str = AZURE_SF_RTE_NAME
 PSP_NAME: str = AZURE_SF_PSP_NAME
 DATA_PLATFORM_NAME: str = AZURE_SF_DATA_PLATFORM_NAME
@@ -70,6 +71,7 @@ CRG_NAME: str = "AzureSnowflakeCQRS"
 MERGE_CONTAINER_NAME: str = "AzureSnowflakeMergeDB"
 CQRS_CONTAINER_NAME: str = "AzureSnowflake_CQRS_DB"
 SNOWFLAKE_HOST_NAME: str = AZURE_SF_SNOWFLAKE_HOST
+CQRS_MAX_WORKERS: int = 8
 
 
 def _location() -> LocationKey:
@@ -129,6 +131,14 @@ def _ingestion_hints() -> list[K8sIngestionHint]:
     return hints
 
 
+def _cqrs_hint() -> CQRSRuntimeHint:
+    return CQRSRuntimeHint(
+        crgName=CRG_NAME,
+        dcName=CQRS_CONTAINER_NAME,
+        kv={"maxWorkers": CQRS_MAX_WORKERS},
+    )
+
+
 def createAzureSfPSP() -> YellowPlatformServiceProvider:
     merge_datacontainer = _snowflake_container(MERGE_CONTAINER_NAME, AZURE_SF_SNOWFLAKE_MERGE_SCHEMA)
     cqrs_datacontainer = _snowflake_container(CQRS_CONTAINER_NAME, AZURE_SF_SNOWFLAKE_CQRS_SCHEMA)
@@ -163,7 +173,7 @@ def createAzureSfPSP() -> YellowPlatformServiceProvider:
         pv_storage_class="azurefile-csi-nfs",
         datasurfaceDockerImage=f"registry.gitlab.com/datasurface-inc/datasurface/datasurface:v{DATASURFACE_VERSION}",
         bulkObjectStorage=_azure_sf_bulk_binding(),
-        hints=_ingestion_hints(),
+        hints=_ingestion_hints() + [_cqrs_hint()],
         consumerReplicaGroups=[
             ConsumerReplicaGroup(
                 name=CRG_NAME,
