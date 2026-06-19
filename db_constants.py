@@ -4,10 +4,10 @@ Proprietary Software - See LICENSE.txt for terms.
 """
 
 # Model size. Keep this at one stream for the Azure Snowflake functional
-# verification, then scale deliberately through 10, 50, 100, 150, 200, and
-# 250 streams.
+# verification, then scale deliberately through 10, 50, 100, 150, 200, 250,
+# and 400 streams.
 NUM_TEAMS: int = 1
-NUM_STORES_PER_TEAM: int = 200
+NUM_STORES_PER_TEAM: int = 400
 
 # Azure resource values. Replace these literals with the actual provisioned
 # Azure values before generating bootstrap artifacts.
