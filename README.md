@@ -114,3 +114,18 @@ Your GitLab deploy token credentials are the same ones described in [ARTIFACTS.m
 ## DataSurface Artifacts
 
 See [ARTIFACTS.md](ARTIFACTS.md) for accessing DataSurface Docker images and Python modules.
+
+## Azure Snowflake Scale Rungs
+
+The `azure_sf` runtime uses one team and `NUM_STORES_PER_TEAM` independent
+source streams. Use the helper below before creating a model release for each
+isolated scale rung:
+
+```bash
+python tools/set_azure_sf_stream_count.py 150
+DATASURFACE_ESO_RECONCILE=false PYTHONPATH=/Users/billy/code/datasurface/src \
+  /Users/billy/code/datasurface/.venv/bin/python -m pytest test_loads.py -q
+```
+
+Repeat with `250` for the second remaining isolated rung, then restore the
+working model count you want to keep on `main`.
