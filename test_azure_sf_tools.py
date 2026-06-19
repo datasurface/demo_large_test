@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 from argparse import Namespace
@@ -56,6 +57,25 @@ class TestAzureSfTools(unittest.TestCase):
         self.assertEqual(command[:3], ["gh", "release", "create"])
         self.assertIn("v1.0.15-demo", command)
         self.assertIn("Azure Snowflake 150-stream scale rung model release.", command)
+
+    def test_fetch_tags_command_refreshes_remote_demo_tags(self) -> None:
+        self.assertEqual(
+            prepare_release.fetch_tags_command(),
+            ["git", "fetch", "origin", "--tags", "--prune"],
+        )
+
+    def test_execute_main_fetches_tags_before_default_tag_selection(self) -> None:
+        with (
+            patch.object(sys, "argv", ["prepare_azure_sf_rung_release.py", "150", "--execute"]),
+            patch.object(prepare_release, "current_count", return_value=400),
+            patch.object(prepare_release, "existing_demo_tags", return_value=["v1.0.14-demo"]),
+            patch.object(prepare_release, "run") as run,
+            patch.object(prepare_release, "execute_release") as execute_release,
+        ):
+            prepare_release.main()
+
+        self.assertEqual(run.call_args_list[0].args[0], prepare_release.fetch_tags_command())
+        self.assertEqual(execute_release.call_args.args[2], "v1.0.15-demo")
 
     def test_execute_restores_count_when_validation_fails_before_commit(self) -> None:
         args = Namespace(count=150, push=False, restore_on_failure=True, github_release=True)

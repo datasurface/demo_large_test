@@ -83,6 +83,10 @@ def validation_env() -> dict[str, str]:
     return env
 
 
+def fetch_tags_command() -> list[str]:
+    return ["git", "fetch", "origin", "--tags", "--prune"]
+
+
 def github_release_command(tag: str, count: int) -> list[str]:
     return [
         "gh",
@@ -153,6 +157,9 @@ def main() -> None:
     if args.push and not args.execute:
         raise SystemExit("--push requires --execute")
 
+    if args.execute and args.tag is None:
+        run(fetch_tags_command(), execute=True)
+
     tag = args.tag or next_demo_tag()
     before = current_count()
     action = "EXECUTE" if args.execute else "DRY RUN"
@@ -163,6 +170,10 @@ def main() -> None:
         raise SystemExit(f"Tag already exists: {tag}")
 
     if not args.execute:
+        print("\nPlanned remote tag refresh before default tag selection:")
+        print("$ " + shell_join(fetch_tags_command()))
+        if args.tag is None:
+            print(f"$ # default tag currently resolves to {tag} from local tags; execute refreshes tags before selecting it")
         print("\nPlanned local steps:")
         print(f"$ python tools/set_azure_sf_stream_count.py {args.count}")
         print("$ DATASURFACE_ESO_RECONCILE=false PYTHONPATH=/Users/billy/code/datasurface/src "

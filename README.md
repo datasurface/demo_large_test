@@ -138,6 +138,12 @@ python tools/prepare_azure_sf_rung_release.py 150
 python tools/prepare_azure_sf_rung_release.py 150 --execute --push
 ```
 
+Dry-run mode prints the remote tag-refresh preflight without running it.
+Execute mode runs `git fetch origin --tags --prune` before selecting the next
+default `v1.0.N-demo` tag, so the release helper does not reuse a tag that was
+created from another checkout. If you pass `--tag`, that explicit tag is used
+after the normal duplicate-tag check.
+
 The `azure_sf` runtime uses a stable-release selector, so `--execute --push`
 also creates the GitHub Release object for the new tag by default. Use
 `--no-github-release` only if you intentionally want a local/tag-only
