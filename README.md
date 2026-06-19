@@ -138,6 +138,11 @@ python tools/prepare_azure_sf_rung_release.py 150
 python tools/prepare_azure_sf_rung_release.py 150 --execute --push
 ```
 
+The `azure_sf` runtime uses a stable-release selector, so `--execute --push`
+also creates the GitHub Release object for the new tag by default. Use
+`--no-github-release` only if you intentionally want a local/tag-only
+preparation step.
+
 If validation, staging, or commit fails before the release commit is created,
 the helper restores `NUM_STORES_PER_TEAM` to its previous value by default.
 Repeat with `250` after the 150-stream cold/warm measurements are recorded.

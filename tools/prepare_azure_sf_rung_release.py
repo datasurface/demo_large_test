@@ -5,7 +5,8 @@ Prepare an Azure Snowflake scale-rung model release.
 By default this script is a dry-run planner. Use --execute to change
 db_constants.py, validate the model, commit, and tag the release locally.
 Use --push as an additional explicit step when the local release should be
-pushed to GitHub.
+pushed to GitHub. Because azure_sf uses ReleaseType.STABLE_ONLY, --push also
+creates a GitHub release by default.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+import shlex
 from pathlib import Path
 
 
@@ -29,8 +31,12 @@ sys.path.insert(0, str(TOOLS_DIR))
 import set_azure_sf_stream_count as stream_count_tool  # noqa: E402
 
 
+def shell_join(command: list[str]) -> str:
+    return " ".join(shlex.quote(part) for part in command)
+
+
 def run(command: list[str], *, execute: bool, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str] | None:
-    print("$ " + " ".join(command))
+    print("$ " + shell_join(command))
     if not execute:
         return None
     return subprocess.run(command, cwd=ROOT, env=env, text=True, check=True)
@@ -77,6 +83,19 @@ def validation_env() -> dict[str, str]:
     return env
 
 
+def github_release_command(tag: str, count: int) -> list[str]:
+    return [
+        "gh",
+        "release",
+        "create",
+        tag,
+        "--title",
+        tag,
+        "--notes",
+        f"Azure Snowflake {count}-stream scale rung model release.",
+    ]
+
+
 def restore_stream_count(count: int) -> None:
     if current_count() != count:
         stream_count_tool.set_stream_count(count)
@@ -95,6 +114,8 @@ def execute_release(args: argparse.Namespace, before: int, tag: str) -> None:
         if args.push:
             run(["git", "push", "origin", "main"], execute=True)
             run(["git", "push", "origin", tag], execute=True)
+            if args.github_release:
+                run(github_release_command(tag, args.count), execute=True)
     except Exception:
         if args.restore_on_failure and not committed:
             restore_stream_count(before)
@@ -111,14 +132,20 @@ def main() -> None:
     parser.add_argument("count", type=int, help="Stream count for the rung, such as 150 or 250")
     parser.add_argument("--tag", help="Release tag to create. Defaults to the next v1.0.N-demo tag.")
     parser.add_argument("--execute", action="store_true", help="Actually edit, test, commit, and tag")
-    parser.add_argument("--push", action="store_true", help="Push main and the tag after --execute succeeds")
+    parser.add_argument("--push", action="store_true", help="Push main/tag and create a GitHub release after --execute succeeds")
+    parser.add_argument(
+        "--no-github-release",
+        dest="github_release",
+        action="store_false",
+        help="With --push, push the tag but skip gh release create.",
+    )
     parser.add_argument(
         "--no-restore-on-failure",
         dest="restore_on_failure",
         action="store_false",
         help="Leave db_constants.py at the requested count if validation/add/commit fails.",
     )
-    parser.set_defaults(restore_on_failure=True)
+    parser.set_defaults(restore_on_failure=True, github_release=True)
     args = parser.parse_args()
 
     if args.count < 1:
@@ -147,6 +174,10 @@ def main() -> None:
         print("\nPlanned push step with --execute --push:")
         print("$ git push origin main")
         print(f"$ git push origin {tag}")
+        if args.github_release:
+            print("$ " + shell_join(github_release_command(tag, args.count)))
+        else:
+            print("$ # GitHub release creation skipped by --no-github-release")
         return
 
     execute_release(args, before, tag)
