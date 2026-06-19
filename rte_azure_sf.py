@@ -71,7 +71,7 @@ CRG_NAME: str = "AzureSnowflakeCQRS"
 MERGE_CONTAINER_NAME: str = "AzureSnowflakeMergeDB"
 CQRS_CONTAINER_NAME: str = "AzureSnowflake_CQRS_DB"
 SNOWFLAKE_HOST_NAME: str = AZURE_SF_SNOWFLAKE_HOST
-CQRS_MAX_WORKERS: int = 8
+CQRS_MAX_WORKERS: int = 32
 
 
 def _location() -> LocationKey:
