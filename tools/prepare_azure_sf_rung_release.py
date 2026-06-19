@@ -26,7 +26,7 @@ DATASURFACE_SRC = DATASURFACE_ROOT / "src"
 TAG_RE = re.compile(r"^v1\.0\.(\d+)-demo$")
 
 sys.path.insert(0, str(TOOLS_DIR))
-from set_azure_sf_stream_count import DB_CONSTANTS, _current_count, set_stream_count  # noqa: E402
+import set_azure_sf_stream_count as stream_count_tool  # noqa: E402
 
 
 def run(command: list[str], *, execute: bool, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str] | None:
@@ -41,7 +41,7 @@ def git_output(command: list[str]) -> str:
 
 
 def current_count() -> int:
-    return _current_count(DB_CONSTANTS.read_text(encoding="utf-8"))
+    return stream_count_tool._current_count(stream_count_tool.DB_CONSTANTS.read_text(encoding="utf-8"))
 
 
 def ensure_clean_worktree() -> None:
@@ -77,12 +77,48 @@ def validation_env() -> dict[str, str]:
     return env
 
 
+def restore_stream_count(count: int) -> None:
+    if current_count() != count:
+        stream_count_tool.set_stream_count(count)
+
+
+def execute_release(args: argparse.Namespace, before: int, tag: str) -> None:
+    ensure_clean_worktree()
+    committed = False
+    stream_count_tool.set_stream_count(args.count)
+    try:
+        run(validation_command(), execute=True, env=validation_env())
+        run(["git", "add", "db_constants.py"], execute=True)
+        run(["git", "commit", "-m", f"Scale Azure Snowflake model to {args.count} streams"], execute=True)
+        committed = True
+        run(["git", "tag", tag], execute=True)
+        if args.push:
+            run(["git", "push", "origin", "main"], execute=True)
+            run(["git", "push", "origin", tag], execute=True)
+    except Exception:
+        if args.restore_on_failure and not committed:
+            restore_stream_count(before)
+            print(f"\nRestored NUM_STORES_PER_TEAM to {before}.", file=sys.stderr)
+        elif committed:
+            print("\nRelease commit was created before the failure; inspect git status and tags.", file=sys.stderr)
+        else:
+            print("\nRelease preparation failed; inspect git status before retrying.", file=sys.stderr)
+        raise
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("count", type=int, help="Stream count for the rung, such as 150 or 250")
     parser.add_argument("--tag", help="Release tag to create. Defaults to the next v1.0.N-demo tag.")
     parser.add_argument("--execute", action="store_true", help="Actually edit, test, commit, and tag")
     parser.add_argument("--push", action="store_true", help="Push main and the tag after --execute succeeds")
+    parser.add_argument(
+        "--no-restore-on-failure",
+        dest="restore_on_failure",
+        action="store_false",
+        help="Leave db_constants.py at the requested count if validation/add/commit fails.",
+    )
+    parser.set_defaults(restore_on_failure=True)
     args = parser.parse_args()
 
     if args.count < 1:
@@ -107,28 +143,13 @@ def main() -> None:
         print("$ git add db_constants.py")
         print(f"$ git commit -m 'Scale Azure Snowflake model to {args.count} streams'")
         print(f"$ git tag {tag}")
+        print(f"$ # on validation/add/commit failure, restore NUM_STORES_PER_TEAM to {before}")
         print("\nPlanned push step with --execute --push:")
         print("$ git push origin main")
         print(f"$ git push origin {tag}")
         return
 
-    ensure_clean_worktree()
-    set_stream_count(args.count)
-    try:
-        run(validation_command(), execute=True, env=validation_env())
-        run(["git", "add", "db_constants.py"], execute=True)
-        run(["git", "commit", "-m", f"Scale Azure Snowflake model to {args.count} streams"], execute=True)
-        run(["git", "tag", tag], execute=True)
-        if args.push:
-            run(["git", "push", "origin", "main"], execute=True)
-            run(["git", "push", "origin", tag], execute=True)
-    except Exception:
-        print(
-            "\nRelease preparation failed after modifying the worktree. "
-            "Inspect git status before retrying; changes were not reverted automatically.",
-            file=sys.stderr,
-        )
-        raise
+    execute_release(args, before, tag)
 
 
 if __name__ == "__main__":
