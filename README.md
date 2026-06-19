@@ -129,3 +129,13 @@ DATASURFACE_ESO_RECONCILE=false PYTHONPATH=/Users/billy/code/datasurface/src \
 
 Repeat with `250` for the second remaining isolated rung, then restore the
 working model count you want to keep on `main`.
+
+For the live Azure Snowflake scale window, use the dry-run release helper first
+so the tag and validation steps are explicit:
+
+```bash
+python tools/prepare_azure_sf_rung_release.py 150
+python tools/prepare_azure_sf_rung_release.py 150 --execute --push
+```
+
+Repeat with `250` after the 150-stream cold/warm measurements are recorded.
